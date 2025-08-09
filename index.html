@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: http://127.0.0.1:17171">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HiTech Printer Helper</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; margin: 0; }
+    header { background: #222; color: #fff; padding: 10px 14px; display:flex; align-items:center; justify-content:space-between; }
+    header h1 { font-size: 16px; margin: 0; }
+    main { padding: 12px; }
+    .section { margin-bottom: 16px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 12px; }
+    th { background: #f5f5f5; text-align: left; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .btn { padding: 6px 10px; border: 1px solid #aaa; background: #fafafa; cursor: pointer; }
+    .btn:hover { background: #f0f0f0; }
+    select, input { padding: 6px; }
+    .muted { color: #777; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>HiTech Printer Helper</h1>
+    <div class="muted" id="status">Attivo</div>
+  </header>
+  <main>
+    <div class="section">
+      <h3>Avvio automatico</h3>
+      <div class="row">
+        <label><input type="checkbox" id="autostart"> Avvia all'accesso</label>
+        <button class="btn" onclick="applyAutostart()">Applica</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Stampanti</h3>
+      <div class="row">
+        <button class="btn" onclick="loadPrinters()">Aggiorna</button>
+        <select id="printers" style="min-width:260px"></select>
+        <button class="btn" onclick="testPrint()">Test Print</button>
+      </div>
+      <div class="muted">Le stampanti rilevate da sistema</div>
+      <table id="printersTable" style="margin-top:8px"></table>
+    </div>
+
+    <div class="section">
+      <h3>Lavori</h3>
+      <div class="row">
+        <button class="btn" onclick="loadJobs()">Aggiorna</button>
+      </div>
+      <table id="jobsTable" style="margin-top:8px"></table>
+    </div>
+  </main>
+
+  <script>
+    const API = 'http://127.0.0.1:17171';
+
+    function td(s){ return `<td>${s ?? ''}</td>`; }
+
+    async function loadAutostart(){
+      try{
+        const r = await fetch(API + '/autostart');
+        const j = await r.json();
+        document.getElementById('autostart').checked = !!j.enabled;
+      }catch{}
+    }
+    async function applyAutostart(){
+      try{
+        const enabled = document.getElementById('autostart').checked;
+        await fetch(API + '/autostart', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ enabled }) });
+      }catch{}
+    }
+
+    async function loadPrinters(){
+      try{
+        const res = await fetch(API + '/printers-full');
+        const list = await res.json();
+        const sel = document.getElementById('printers');
+        sel.innerHTML = '';
+        list.forEach(p => {
+          const o = document.createElement('option');
+          o.value = p.name; o.textContent = p.displayName || p.name; sel.appendChild(o);
+        });
+        const tbl = document.getElementById('printersTable');
+        tbl.innerHTML = '<tr><th>Nome</th><th>Display</th><th>Default</th><th>Color</th></tr>' +
+          list.map(p => `<tr>${td(p.name)}${td(p.displayName)}${td(p.isDefault || false)}${td(p.options?.color || '')}</tr>`).join('');
+      }catch{}
+    }
+
+    async function loadJobs(){
+      try{
+        const res = await fetch(API + '/jobs');
+        const list = await res.json();
+        const tbl = document.getElementById('jobsTable');
+        tbl.innerHTML = '<tr><th>ID</th><th>Data</th><th>Stampante</th><th>Stato</th><th>Errore</th></tr>' +
+          list.map(j => `<tr>${td(j.id)}${td(j.time)}${td(j.printerName || '')}${td(j.status)}${td(j.error || '')}</tr>`).join('');
+      }catch{}
+    }
+
+    async function testPrint(){
+      const pdfBase64 = 'JVBERi0xLjQKJcTl8uXrp/Og0MTGCjEgMCBvYmoKPDwKL1BhZ2VzIDIgMCBSCj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9Db3VudCAxCi9LaWRzIFsgMyAwIFIgXQovVHlwZSAvUGFnZXMKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1BhcmVudCAyIDAgUgovUmVzb3VyY2VzIDw8Pj4KL1R5cGUgL1BhZ2UKL01lZGlhQm94IFswIDAgNTk1LjI3NiA4NDEuODk5XQovQ29udGVudHMgNCAwIFIKPj4KZW5kb2JqCjQgMCBvYmoKPDwKL0xlbmd0aCAxMAo+PgpzdHJlYW0KClEKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAxMDEgMDAwMDAgbiAKMDAwMDAwMDE3NyAwMDAwMCBuIAowMDAwMDAwMzA2IDAwMDAwIG4gCjAwMDAwMDAzOTcgMDAwMDAgbiAKdHJhaWxlcgo8PAovUm9vdCAxIDAgUgovU2l6ZSA1Cj4+CnN0YXJ0eHJlZgo0OTYKJSVFT0Y=';
+      const printerName = document.getElementById('printers').value || null;
+      try{
+        await fetch(API + '/print', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ base64pdf: pdfBase64, printerName }) });
+        loadJobs();
+      }catch{}
+    }
+
+    loadAutostart();
+    loadPrinters();
+    loadJobs();
+    setInterval(loadJobs, 5000);
+  </script>
+</body>
+</html>
