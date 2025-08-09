@@ -8,8 +8,8 @@
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "dist:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "dist": "electron-builder -p never",
+    "dist:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -p never",
     "icons": "node scripts/generate-icons.js"
   },
   "build": {
